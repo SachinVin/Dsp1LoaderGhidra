@@ -69,7 +69,8 @@ public class Dsp1Loader extends AbstractProgramWrapperLoader {
                     throws CancelledException, IOException {
 
         // TODO: Load the bytes from 'provider' into the 'program'.
-        AddressSpace addressSpace = program.getAddressFactory().getDefaultAddressSpace();
+        AddressSpace codeSpace = program.getLanguage().getDefaultSpace();
+        AddressSpace dataSpace = program.getLanguage().getDefaultDataSpace();
         InputStream is = provider.getInputStream(0);
 
         FlatProgramAPI api = new FlatProgramAPI(program, monitor);
@@ -81,15 +82,16 @@ public class Dsp1Loader extends AbstractProgramWrapperLoader {
 
         if(header.loadSpecialSegment == 1) {
             try {
-                long start = header.specialSegmentType == 2 ? DSP_DATA_OFFSET + header.specialSegmentAddress*2 : header.specialSegmentAddress*2 ;
+                long start = header.specialSegmentAddress*2;
                 String segmentName = "Special Segment " + (header.specialSegmentType == 2 ? "Data " : "Prog ") + Long.toHexString(header.specialSegmentAddress);
+                AddressSpace addressSpace = header.specialSegmentType == 2 ? dataSpace : codeSpace;
                 MemoryBlockUtils.createInitializedBlock(program, 
                         false, 
                         segmentName, 
                         addressSpace.getAddress(start),
                         // provider.getInputStream(s.offset),
                         header.specialSegmentSize, "", null, true, true, 
-                        header.specialSegmentType != 2/*!Data*/, null);
+                        header.specialSegmentType != 2/*!Data*/, log);
             } catch (AddressOutOfBoundsException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
@@ -100,19 +102,21 @@ public class Dsp1Loader extends AbstractProgramWrapperLoader {
             Segment s = header.segments[i];
 
             try {
-                long start = s.isData() ? DSP_DATA_OFFSET + s.address*2 : s.address*2 ;
+                long start = s.address*2 ;
 
                 String segmentName = "Segment " + (s.isData() ? "Data " : "Prog ") + Long.toHexString(s.address);
+                AddressSpace addressSpace = s.isData() ? dataSpace : codeSpace;
                 MemoryBlockUtils.createInitializedBlock(program, 
                         false, 
                         segmentName, 
                         addressSpace.getAddress(start),
                         provider.getInputStream(s.offset),
                         s.size, "", null, true, true, 
-                        !s.isData(), null, 
+                        !s.isData(), log,
                         monitor);
             } catch (AddressOverflowException | AddressOutOfBoundsException | IOException e) {
                 // TODO Auto-generated catch block
+            	log.appendMsg("ooops");
                 e.printStackTrace();
             }
         }
